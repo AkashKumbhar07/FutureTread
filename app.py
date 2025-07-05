@@ -35,6 +35,13 @@ def predict(df, model):
     df = add_indicators(df)
     df.dropna(inplace=True)
     X = df[['rsi', 'ema', 'macd']]
+    if hasattr(model, "feature_names_in_"):
+        missing_cols = [col for col in model.feature_names_in_ if col not in X.columns]
+        if missing_cols:
+            raise ValueError(f"Missing columns for prediction: {missing_cols}")
+        X = X[model.feature_names_in_]
+    else:
+        st.warning("Model is missing `feature_names_in_`. Ensure it was trained on a DataFrame.")
     df['Signal'] = model.predict(X)
     df['Buy'] = df['Signal'].diff() == 1
     df['Sell'] = df['Signal'].diff() == -1
