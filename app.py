@@ -25,9 +25,20 @@ def load_model():
 # === Get stock data ===
 def get_data(symbol="AAPL", start="2023-01-01", end=None):
     df = yf.download(symbol, start=start, end=end, interval="1d", group_by="ticker")
+
+    if df.empty:
+        st.error(f"Failed to fetch data for symbol '{symbol}'. Please check the ticker or try again later.")
+        return pd.DataFrame()  # return empty to avoid crash
+
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(1)
-    df = df[['Open', 'High', 'Low', 'Close', 'Volume']].dropna()
+
+    try:
+        df = df[['Open', 'High', 'Low', 'Close', 'Volume']].dropna()
+    except KeyError:
+        st.error(f"Incomplete data for symbol '{symbol}'.")
+        return pd.DataFrame()
+
     return df
 
 # === Predict using model ===
@@ -93,6 +104,8 @@ if st.button("🔮 Predict Signal"):
     with st.spinner("Running predictions..."):
         model = load_model()
         df = get_data(symbol, str(start_date), str(end_date))
+        if df.empty:
+            st.stop()
         result_df = predict(df, model)
 
         # Latest prediction
