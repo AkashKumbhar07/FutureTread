@@ -6,7 +6,14 @@ import plotly.graph_objects as go
 from utils.indicators import add_indicators
 from datetime import datetime
 from utils.telegram import send_telegram_message
+from utils.train_model import retrain_model
+from utils.ensemble import load_all_models, predict_with_ensemble
 
+df = pd.read_csv("data/AAPL.csv", index_col=0)
+df = add_indicators(df)
+models = load_all_models()
+X = df[['rsi', 'ema', 'macd']]
+df['Signal'] = predict_with_ensemble(models, X)
 
 # === Load model ===
 @st.cache_resource
@@ -30,6 +37,20 @@ def predict(df, model):
     df['Buy'] = df['Signal'].diff() == 1
     df['Sell'] = df['Signal'].diff() == -1
     return df
+
+st.markdown("### 🔁 Retrain AI Model")
+
+if st.button("♻️ Retrain Model"):
+    with st.spinner("Training new model on latest data..."):
+        metrics = retrain_model()
+        st.success("✅ Model retrained and saved as rf_model.pkl")
+        st.json({
+            "Accuracy": round(metrics["accuracy"], 3),
+            "Precision (Buy)": round(metrics["1"]["precision"], 3),
+            "Recall (Buy)": round(metrics["1"]["recall"], 3),
+            "F1-score (Buy)": round(metrics["1"]["f1-score"], 3),
+        })
+
 
 # === Backtest stats ===
 def calculate_stats(df):
@@ -68,21 +89,26 @@ if st.button("🔮 Predict Signal"):
 
         # Latest prediction
         latest = result_df.iloc[-1]
+        st.write("🔍 Latest Signal Value:", latest['Signal'])
         signal = "BUY 🟢" if latest['Signal'] == 1 else "HOLD ⚪"
 
         st.subheader(f"📊 Prediction for {symbol}")
         st.metric("Latest Signal", signal)
         st.metric("Latest Price", f"${latest['Close']:.2f}")
-        if signal.startswith("BUY") and telegram_token and telegram_chat_id:
+
+        # ✅ Always try sending if BUY and Telegram fields are filled
+        if telegram_token and telegram_chat_id:
+            message = f"📊 {symbol} Signal: {signal} @ ${latest['Close']:.2f}"
             sent = send_telegram_message(
                 telegram_token,
                 telegram_chat_id,
-                f"🚀 {symbol} Signal: {signal} @ ${latest['Close']:.2f}"
+                message
             )
             if sent:
                 st.success("✅ Telegram alert sent!")
             else:
                 st.warning("⚠️ Failed to send Telegram alert.")
+
 
         # --- Backtest stats ---
         total_return, win_rate = calculate_stats(result_df)
