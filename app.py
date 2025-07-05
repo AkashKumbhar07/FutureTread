@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_page_config(page_title="FutureTread AI", layout="centered")
+
 import pandas as pd
 import yfinance as yf
 import joblib
@@ -62,7 +64,6 @@ def calculate_stats(df):
     return round(total_return * 100, 2), round(win_rate * 100, 2)
 
 # === Streamlit UI ===
-st.set_page_config(page_title="FutureTread AI", layout="centered")
 st.title("📈 FutureTread: AI Trading Signal")
 
 # --- Inputs ---
